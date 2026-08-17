@@ -1,0 +1,408 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+				font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			#stage {
+				position: absolute;
+				inset: 0;
+				padding: 5px;
+				display: flex;
+				flex-direction: column;
+			}
+
+			#lb {
+				position: relative;
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: flex-start;
+				border-radius: 14px;
+				padding: 5px 8px 6px;
+				background: radial-gradient(
+					ellipse 80% 70% at 50% 90%,
+					rgba(255, 190, 50, 0.75) 0%,
+					rgba(8, 8, 20, 0.92) 68%
+				);
+				border: 1.5px solid rgba(255, 190, 50, 0.85);
+				animation: borderGlow 3s ease-in-out infinite;
+				text-align: center;
+				overflow: hidden;
+			}
+
+			#lb::after {
+				content: "";
+				position: absolute;
+				top: 0;
+				left: -100%;
+				width: 55%;
+				height: 100%;
+				background: linear-gradient(
+					105deg,
+					transparent,
+					rgba(255, 219, 100, 0.181),
+					transparent
+				);
+				animation: shimmer 7s ease-in-out infinite 2s;
+				pointer-events: none;
+			}
+
+			#tag {
+				position: relative;
+				flex: 0 0 auto;
+				font-size: clamp(14px, 4.8vh, 40px);
+				font-weight: 800;
+				letter-spacing: 0.25em;
+				text-transform: uppercase;
+				color: rgba(255, 200, 60, 0.9);
+				text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+				margin-bottom: 1vh;
+			}
+
+			#holder {
+				font-size: clamp(14px, 5vh, 36px);
+				font-weight: 700;
+				color: rgba(255, 255, 255, 0.92);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+			}
+
+			#user-row {
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: clamp(6px, 2vh, 14px);
+			}
+
+			#avatar-wrap {
+				width: clamp(32px, 9vh, 68px);
+				height: clamp(32px, 9vh, 68px);
+				border-radius: 50%;
+				position: relative;
+				flex-shrink: 0;
+				border: 2px solid rgba(255, 190, 50, 0.55);
+				background: rgba(255, 255, 255, 0.05);
+				overflow: hidden;
+			}
+
+			#avatar {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				display: block;
+			}
+
+			#avatar-init {
+				position: absolute;
+				inset: 0;
+				display: none;
+				align-items: center;
+				justify-content: center;
+				font-size: clamp(14px, 4.5vh, 32px);
+				font-weight: 800;
+				color: rgba(255, 255, 255, 0.88);
+				text-transform: uppercase;
+				background: rgba(255, 190, 50, 0.15);
+			}
+
+			#divider {
+				flex: 0 0 auto;
+				width: 55%;
+				height: 1.5px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(255, 190, 50, 0.5),
+					transparent
+				);
+				margin: 1vh auto;
+			}
+
+			#amount {
+				flex: 0 0 auto;
+				font-size: clamp(20px, 7vh, 48px);
+				font-weight: 900;
+				color: #ffd45c;
+				line-height: 1;
+				text-shadow:
+					0 0 30px rgba(255, 190, 50, 0.65),
+					0 4px 24px rgba(0, 0, 0, 0.5);
+				margin-bottom: 1.5vh;
+				display: inline-block;
+			}
+
+			#amount.pulse {
+				animation: amountPulse 0.55s ease-out;
+			}
+
+			#badge {
+				display: inline-block;
+				font-size: clamp(9px, 2.5vh, 13px);
+				font-weight: 800;
+				letter-spacing: 2px;
+				text-transform: uppercase;
+				color: #fff;
+				background: linear-gradient(90deg, #f0932b, #e55b00);
+				padding: clamp(3px, 1vh, 6px) clamp(10px, 3vh, 20px);
+				border-radius: 20px;
+				opacity: 0;
+				transform: translateY(10px);
+				transition:
+					opacity 0.3s ease,
+					transform 0.3s ease;
+			}
+
+			#badge.show {
+				opacity: 1;
+				transform: translateY(0);
+			}
+
+			#gift-wrap {
+				flex: 1;
+				min-height: 0;
+				width: 80%;
+				position: relative;
+				margin: 0.5vh auto;
+				background: transparent;
+			}
+
+			#gift-img {
+				width: 100%;
+				height: 100%;
+				object-fit: contain;
+				display: block;
+				padding: 4px;
+				filter: drop-shadow(0 8px 28px rgba(255, 180, 30, 0.65));
+			}
+
+			#gift-init {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: clamp(60px, 18vh, 150px);
+				filter: drop-shadow(0 8px 28px rgba(255, 180, 30, 0.65));
+			}
+
+			@keyframes borderGlow {
+				0%,
+				100% {
+					box-shadow: inset 0 0 12px 4px rgba(255, 190, 50, 0.2);
+				}
+				50% {
+					box-shadow: inset 0 0 35px 12px rgba(255, 190, 50, 0.75);
+				}
+			}
+
+			@keyframes shimmer {
+				0% {
+					left: -100%;
+				}
+				45%,
+				100% {
+					left: 160%;
+				}
+			}
+
+			@keyframes amountPulse {
+				0% {
+					transform: scale(1);
+				}
+				35% {
+					transform: scale(1.2);
+					text-shadow:
+						0 0 55px rgba(255, 220, 0, 1),
+						0 4px 24px rgba(0, 0, 0, 0.5);
+				}
+				100% {
+					transform: scale(1);
+					text-shadow:
+						0 0 30px rgba(255, 190, 50, 0.65),
+						0 4px 24px rgba(0, 0, 0, 0.5);
+				}
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="stage">
+			<div id="lb" class="placeholder">
+				<div id="tag">👑&nbsp;&nbsp;P BALAP</div>
+				<div id="divider"></div>
+				<div id="user-row">
+					<div id="avatar-wrap" style="display: none">
+						<img
+							id="avatar"
+							src=""
+							onerror="
+								this.style.display = 'none';
+								document.getElementById('avatar-init').style.display = 'flex';
+							"
+						/>
+						<span id="avatar-init"></span>
+					</div>
+					<div id="holder">———</div>
+				</div>
+				<div id="divider"></div>
+				<div id="gift-wrap">
+					<img
+						id="gift-img"
+						src=""
+						style="display: none"
+						onerror="
+							this.style.display = 'none';
+							document.getElementById('gift-init').style.display = 'flex';
+						"
+					/>
+					<span id="gift-init">🎁</span>
+				</div>
+				<div id="amount">— 💎</div>
+				<span id="badge">⚡ NEW RECORD</span>
+			</div>
+		</div>
+
+		<script>
+			let ws;
+
+			const lb = document.getElementById("lb");
+			const tagEl = document.getElementById("tag");
+			const avatarWrap = document.getElementById("avatar-wrap");
+			const avatarEl = document.getElementById("avatar");
+			const avatarInit = document.getElementById("avatar-init");
+			const holderEl = document.getElementById("holder");
+			const amountEl = document.getElementById("amount");
+			const giftWrap = document.getElementById("gift-wrap");
+			const giftImg = document.getElementById("gift-img");
+			const giftInit = document.getElementById("gift-init");
+			const badgeEl = document.getElementById("badge");
+
+			let _badgeTimer = null;
+
+			function esc(s) {
+				return String(s)
+					.replace(/&/g, "&amp;")
+					.replace(/</g, "&lt;")
+					.replace(/>/g, "&gt;")
+					.replace(/"/g, "&quot;")
+					.replace(/'/g, "&#039;");
+			}
+
+			function renderPlaceholder() {
+				lb.classList.add("placeholder");
+				avatarWrap.style.display = "none";
+				holderEl.textContent = "———";
+				amountEl.textContent = "— 💎";
+			}
+
+			const isUrl = (s) => typeof s === "string" && s.startsWith("http");
+
+			function render(data) {
+				if (!data || !data.username || !data.coins) {
+					renderPlaceholder();
+					return;
+				}
+
+				if (data.title) {
+					tagEl.textContent = "👑\u00a0\u00a0" + data.title;
+				}
+
+				const initial = (data.username || "?").charAt(0).toUpperCase();
+				avatarInit.textContent = initial;
+				if (data.avatar) {
+					avatarEl.style.display = "block";
+					avatarInit.style.display = "none";
+					avatarEl.src = data.avatar;
+				} else {
+					avatarEl.style.display = "none";
+					avatarInit.style.display = "flex";
+				}
+				avatarWrap.style.display = "block";
+				if (isUrl(data.gift_icon)) {
+					giftImg.src = data.gift_icon;
+					giftImg.style.display = "block";
+					giftInit.style.display = "none";
+				} else {
+					giftImg.style.display = "none";
+					giftInit.textContent = data.gift_icon || "🎁";
+					giftInit.style.display = "flex";
+				}
+
+				holderEl.textContent = esc(data.username);
+				amountEl.textContent = Number(data.coins).toLocaleString() + " 💎";
+				lb.classList.remove("placeholder");
+
+				if (data.live) {
+					amountEl.classList.remove("pulse");
+					void amountEl.offsetWidth;
+					amountEl.classList.add("pulse");
+
+					if (_badgeTimer) clearTimeout(_badgeTimer);
+					badgeEl.classList.add("show");
+					_badgeTimer = setTimeout(function () {
+						badgeEl.classList.remove("show");
+					}, 5000);
+				}
+			}
+
+			function connect() {
+				try {
+					ws = new WebSocket("ws://127.0.0.1:8766");
+
+					ws.onopen = function () {
+						console.log("Top Gift connected");
+					};
+
+					ws.onmessage = function (e) {
+						try {
+							const d = JSON.parse(e.data);
+
+							if (d.type === "top_gift") {
+								render(d);
+							}
+						} catch (err) {
+							console.error("Invalid WebSocket data:", err);
+						}
+					};
+
+					ws.onclose = function () {
+						setTimeout(connect, 1000);
+					};
+
+					ws.onerror = function () {
+						try {
+							ws.close();
+						} catch (e) {}
+					};
+				} catch (err) {
+					setTimeout(connect, 1000);
+				}
+			}
+
+			connect();
+		</script>
+	</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				width: 100vw;
+				height: 100vh;
+				background: transparent;
+				overflow: hidden;
+			}
+			#v {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				object-fit: contain;
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<video id="v" playsinline></video>
+		<script>
+			const v = document.getElementById("v");
+			let ws;
+			function send(o) {
+				if (ws && ws.readyState === 1) ws.send(JSON.stringify(o));
+			}
+			function connect() {
+				ws = new WebSocket("ws://127.0.0.1:8766");
+				ws.onopen = () =>
+					ws.send(JSON.stringify({ type: "identify", overlay: "jj_video" }));
+				ws.onmessage = (e) => {
+					const d = JSON.parse(e.data);
+					if (d.type === "jj_video" && d.play) {
+						_playId++;
+						v.onended = makeEndHandler(_playId);
+						v.onerror = makeEndHandler(_playId);
+						v.src = d.play;
+						v.style.display = "block";
+						v.currentTime = 0;
+						v.play();
+					}
+				};
+				ws.onclose = () => setTimeout(connect, 1000);
+				ws.onerror = () => {};
+			}
+			let _playId = 0;
+			function makeEndHandler(id) {
+				return function () {
+					if (id !== _playId) return;
+					v.onended = null;
+					v.onerror = null;
+					v.style.display = "none";
+					v.src = "";
+					_playId++;
+					send({ type: "jj_video", ended: true });
+				};
+			}
+			connect();
+		</script>
+	</body>
+</html>

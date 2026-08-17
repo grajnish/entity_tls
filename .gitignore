@@ -1,0 +1,35 @@
+# Folders
+BACKUP/
+entity/
+videos/
+node_modules/
+dist/
+build/
+
+# Config & Spec files
+build.spec
+entity_config.json
+reminder.txt
+
+# Archives & Executables
+*.zip
+*.exe
+
+# Images
+*.svg
+*.png
+
+# Logs & Temp files
+*.log
+*.bak
+*.tmp
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

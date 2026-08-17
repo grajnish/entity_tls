@@ -1,0 +1,344 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Gift Leaderboard</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Righteous&display=swap"
+			rel="stylesheet"
+		/>
+
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+				font-family: "Righteous", sans-serif;
+				font-weight: 400;
+				font-weight: bolder;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			#stage {
+				position: absolute;
+				inset: 0;
+				padding: 8px 10px;
+				display: flex;
+				flex-direction: column;
+				--username-color: #fff;
+				--rank-color: #fff;
+				margin-top: 10px;
+			}
+
+			#rows {
+				display: flex;
+				flex-direction: column;
+				gap: 25px;
+			}
+
+			.lb-row {
+				position: relative;
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				padding: 0 10px;
+				border-radius: 25px;
+				white-space: nowrap;
+				color: #fff;
+				background: transparent;
+			}
+
+			.placeholder {
+				opacity: 0.35;
+			}
+
+			.lb-rank {
+				flex: 0 0 52px;
+				font-size: clamp(18px, 4.5vh, 38px);
+				font-weight: bold;
+				text-align: center;
+				color: var(--rank-color);
+			}
+
+			.avatar-wrap {
+				position: relative;
+				flex: 0 0 auto;
+				margin-right: 12px;
+				margin-left: 8px;
+			}
+
+			.lb-avatar {
+				width: clamp(32px, 8vh, 62px);
+				height: clamp(32px, 8vh, 62px);
+				border-radius: 50%;
+				object-fit: cover;
+				display: block;
+			}
+
+			.lb-init {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: clamp(12px, 3.2vh, 26px);
+				font-weight: 900;
+				color: #fff;
+				background: rgba(223, 186, 0, 0.373);
+			}
+
+			.r1 .lb-avatar {
+				border: 3px solid rgb(246, 183, 56);
+			}
+			.r2 .lb-avatar {
+				border: 3px solid rgb(192, 192, 192);
+			}
+			.r3 .lb-avatar {
+				border: 3px solid rgb(205, 127, 50);
+			}
+
+			/* crown floats above the rank-1 avatar */
+			.lb-crown {
+				position: absolute;
+				height: 30px;
+				top: -19px;
+				left: 50%;
+				transform: translateX(-50%);
+				pointer-events: none;
+			}
+
+			.lb-name {
+				font-size: clamp(20px, 7vh, 56px);
+				font-weight: bold;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				color: var(--username-color);
+			}
+
+			.lb-coins {
+				display: flex;
+				align-items: center;
+				gap: 5px;
+				font-size: clamp(16px, 6vh, 48px);
+				font-weight: bold;
+				color: rgb(255, 196, 0);
+			}
+
+			.lb-info {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				padding: 0 5px;
+				gap: 1px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="stage">
+			<div id="rows"></div>
+		</div>
+
+		<script>
+			(function () {
+				"use strict";
+
+				var WS_URL = "ws://127.0.0.1:8766";
+				var TOP_N = 5;
+
+				var stageEl = document.getElementById("stage");
+				var rowsEl = document.getElementById("rows");
+
+				var MEDALS = { 1: "🥇", 2: "🥈", 3: "🥉" };
+				var prev = {};
+				var ws = null;
+				var retry = 0;
+
+				var COIN_SVG =
+					'<svg width="0.9em" height="0.9em" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;">' +
+					'<circle cx="24" cy="24" r="22" fill="#FFEC9B"/>' +
+					'<circle cx="24" cy="24" r="17" fill="#FACE15"/>' +
+					'<path fill-rule="evenodd" clip-rule="evenodd" d="M40.9347 25.5C40.9779 25.0058 41 24.5055 41 24C41 14.6112 33.3888 7 24 7C14.6112 7 7 14.6112 7 24C7 24.5055 7.02206 25.0058 7.06527 25.5C7.82466 16.8137 15.1166 10 24 10C32.8834 10 40.1753 16.8137 40.9347 25.5Z" fill="#FABC15"/>' +
+					'<path d="M33 19C30.2041 19 27.9375 16.7614 27.9375 14H24.5625V27.6111C24.5625 29.2987 23.1774 30.6667 21.4688 30.6667C19.7601 30.6667 18.375 29.2987 18.375 27.6111C18.375 25.9236 19.7601 24.5556 21.4688 24.5556C21.722 24.5556 21.9659 24.5853 22.1981 24.6406C22.2365 24.6497 22.2747 24.6596 22.3125 24.6701V21.2763C22.0358 21.2406 21.7541 21.2222 21.4688 21.2222C17.8962 21.2222 15 24.0826 15 27.6111C15 31.1396 17.8962 34 21.4688 34C25.0413 34 27.9375 31.1396 27.9375 27.6111V20.6673C29.3477 21.7133 31.1005 22.3333 33 22.3333V19Z" fill="#FEF5CD"/>' +
+					"</svg>";
+
+				var CROWN_PATH =
+					"m 64.000012,31.484944 28.902346,36.127871 28.902242,-36.127871 -7.22553,65.030147 -101.158086,0 L 6.1954237,31.484944 35.0977,67.612815 64.000012,31.484944 z";
+
+				function fmtCoins(n) {
+					return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+				}
+
+				function initialsEl(name) {
+					var d = document.createElement("div");
+					d.className = "lb-avatar lb-init";
+					d.textContent = (name || "?").charAt(0).toUpperCase();
+					return d;
+				}
+
+				function crownSvg() {
+					var ns = "http://www.w3.org/2000/svg";
+					var svg = document.createElementNS(ns, "svg");
+					svg.setAttribute("viewBox", "0 0 128 96.5");
+					svg.setAttribute("class", "lb-crown");
+					var g = document.createElementNS(ns, "g");
+					var path = document.createElementNS(ns, "path");
+					path.setAttribute("d", CROWN_PATH);
+					path.setAttribute(
+						"style",
+						"fill:#ffcd00;stroke:#000;stroke-width:4.3;fill-rule:evenodd;",
+					);
+					g.appendChild(path);
+					svg.appendChild(g);
+					return svg;
+				}
+
+				function buildRow(rank, item, isPlaceholder) {
+					var row = document.createElement("div");
+					row.className =
+						"lb-row r" + rank + (isPlaceholder ? " placeholder" : "");
+
+					var name = (item && item.name) || "———";
+					var coins = Number(item && item.coins) || 0;
+
+					var rankEl = document.createElement("span");
+					rankEl.className = "lb-rank";
+					rankEl.textContent = MEDALS[rank] || String(rank);
+					row.appendChild(rankEl);
+
+					var wrap = document.createElement("div");
+					wrap.className = "avatar-wrap";
+
+					if (!isPlaceholder) {
+						if (item.avatar) {
+							var img = document.createElement("img");
+							img.className = "lb-avatar";
+							img.alt = "";
+							img.onerror = function () {
+								if (img.parentNode)
+									img.parentNode.replaceChild(initialsEl(name), img);
+							};
+							img.src = item.avatar;
+							wrap.appendChild(img);
+						} else {
+							wrap.appendChild(initialsEl(name));
+						}
+						if (rank === 1) wrap.appendChild(crownSvg());
+					} else {
+						wrap.appendChild(initialsEl(name));
+					}
+					row.appendChild(wrap);
+
+					var info = document.createElement("div");
+					info.className = "lb-info";
+
+					var nameEl = document.createElement("span");
+					nameEl.className = "lb-name";
+					nameEl.textContent = name;
+					info.appendChild(nameEl);
+
+					var coinsEl = document.createElement("span");
+					coinsEl.className = "lb-coins";
+					coinsEl.innerHTML = isPlaceholder
+						? "—"
+						: COIN_SVG + " " + fmtCoins(coins);
+					info.appendChild(coinsEl);
+
+					row.appendChild(info);
+
+					return row;
+				}
+
+				function renderPlaceholders() {
+					prev = {};
+					rowsEl.textContent = "";
+					for (var i = 1; i <= TOP_N; i++)
+						rowsEl.appendChild(buildRow(i, null, true));
+				}
+
+				function render(data, uColor, rColor) {
+					if (uColor) stageEl.style.setProperty("--username-color", uColor);
+					if (rColor) stageEl.style.setProperty("--rank-color", rColor);
+
+					if (!data || !data.length) {
+						renderPlaceholders();
+						return;
+					}
+
+					var frag = document.createDocumentFragment();
+					var realCount = Math.min(data.length, TOP_N);
+
+					data.slice(0, TOP_N).forEach(function (item, i) {
+						frag.appendChild(buildRow(Number(item.rank) || i + 1, item, false));
+					});
+
+					for (var j = realCount + 1; j <= TOP_N; j++)
+						frag.appendChild(buildRow(j, null, true));
+
+					rowsEl.textContent = "";
+					rowsEl.appendChild(frag);
+					prev = {};
+				}
+
+				function scheduleReconnect() {
+					var delay = Math.min(1000 * Math.pow(2, retry), 10000);
+					retry++;
+					setTimeout(connect, delay);
+				}
+
+				function connect() {
+					try {
+						ws = new WebSocket(WS_URL);
+					} catch (err) {
+						console.error("WebSocket init failed:", err);
+						scheduleReconnect();
+						return;
+					}
+
+					ws.onopen = function () {
+						retry = 0;
+						ws.send(
+							JSON.stringify({ type: "identify", overlay: "gift_leaderboard" }),
+						);
+					};
+
+					ws.onmessage = function (e) {
+						try {
+							var d = JSON.parse(e.data);
+							if (d.type === "gift_leaderboard")
+								render(d.leaderboard, d.username_color, d.rank_color);
+						} catch (err) {
+							console.error("Invalid WebSocket data:", err);
+						}
+					};
+
+					ws.onerror = function () {
+						try {
+							ws.close();
+						} catch (err) {
+							/* ignore */
+						}
+					};
+
+					ws.onclose = scheduleReconnect;
+				}
+
+				// --- boot ---
+				renderPlaceholders();
+				connect();
+			})();
+		</script>
+	</body>
+</html>

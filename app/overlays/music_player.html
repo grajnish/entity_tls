@@ -1,0 +1,568 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Music Player</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Righteous&display=swap"
+			rel="stylesheet"
+		/>
+
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+				font-family: "Righteous", sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			/* appears only when browser blocks autoplay */
+			#audio-gate {
+				position: absolute;
+				bottom: 8px;
+				right: 8px;
+				z-index: 100;
+				background: rgba(0, 0, 0, 0.7);
+				color: #fff;
+				font-size: 11px;
+				padding: 4px 10px;
+				border-radius: 20px;
+				cursor: pointer;
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				display: none;
+			}
+
+			#stage {
+				position: absolute;
+				inset: 0;
+				padding: 8px 10px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				--color-song: #ffffff;
+				--color-artist: #b4ffeb;
+				--color-user: #aaaaaa;
+				--color-queue-label: #00dcb4;
+				--color-queue-index: #00dcb4;
+				--color-queue-song: #d9d9d9;
+				--color-queue-by: #595959;
+			}
+
+			/* ── Now Playing ── */
+			#now-section {
+				display: flex;
+				align-items: center;
+				gap: clamp(8px, 2vh, 16px);
+				padding: 0 4px;
+			}
+
+			#thumb-wrap {
+				flex: 0 0 auto;
+				width: clamp(52px, 14vh, 110px);
+				height: clamp(52px, 14vh, 110px);
+				border-radius: 10px;
+				overflow: hidden;
+				border: 2px solid rgba(0, 200, 160, 0.5);
+				background: rgba(255, 255, 255, 0.05);
+				position: relative;
+			}
+
+			#thumb {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				display: block;
+			}
+
+			#thumb-init {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: clamp(24px, 7vh, 56px);
+				color: rgba(255, 255, 255, 0.25);
+			}
+
+			#info {
+				flex: 1;
+				min-width: 0;
+				text-align: left;
+				display: flex;
+				flex-direction: column;
+				gap: clamp(2px, 0.6vh, 6px);
+			}
+
+			#status-badge {
+				display: inline-block;
+				font-size: clamp(7px, 1.8vh, 12px);
+				font-weight: 800;
+				letter-spacing: 2px;
+				text-transform: uppercase;
+				color: #fff;
+				background: linear-gradient(
+					90deg,
+					rgba(0, 180, 140, 0.9),
+					rgba(0, 140, 110, 0.9)
+				);
+				padding: 2px 10px;
+				border-radius: 20px;
+				align-self: flex-start;
+			}
+
+			#status-badge.searching {
+				background: linear-gradient(
+					90deg,
+					rgba(180, 120, 0, 0.9),
+					rgba(140, 90, 0, 0.9)
+				);
+			}
+
+			#song-title {
+				font-size: clamp(20px, 7vh, 56px);
+				color: var(--color-song, #fff);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			#song-artist {
+				font-size: clamp(9px, 2.5vh, 20px);
+				color: var(--color-artist, rgba(180, 255, 235, 0.85));
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			#song-requester {
+				font-size: clamp(8px, 2.2vh, 17px);
+				color: var(--color-user, rgba(255, 255, 255, 0.45));
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			/* ── Divider ── */
+			.divider {
+				width: 55%;
+				height: 1px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(0, 200, 160, 0.5),
+					transparent
+				);
+				margin: 0 auto;
+			}
+
+			/* ── Queue ── */
+			#queue-section {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				overflow: hidden;
+			}
+
+			#queue-label {
+				font-size: clamp(8px, 2vh, 14px);
+				font-weight: 800;
+				letter-spacing: 0.2em;
+				text-transform: uppercase;
+				color: var(--color-queue-label, rgba(0, 220, 180, 0.55));
+				padding: 0 4px;
+			}
+
+			#queue-rows {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				overflow: hidden;
+			}
+
+			.q-row {
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 5px 10px;
+				border-radius: 8px;
+				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid rgba(255, 255, 255, 0.06);
+			}
+
+			.q-thumb {
+				flex: 0 0 auto;
+				width: clamp(26px, 5.5vh, 42px);
+				height: clamp(26px, 5.5vh, 42px);
+				border-radius: 5px;
+				object-fit: cover;
+				background: rgba(255, 255, 255, 0.06);
+			}
+
+			.q-num {
+				flex: 0 0 auto;
+				font-size: clamp(8px, 2.2vh, 16px);
+				font-weight: 700;
+				color: var(--color-queue-index, rgba(0, 220, 180, 0.6));
+				width: 16px;
+				text-align: center;
+			}
+
+			.q-info {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 1px;
+			}
+
+			.q-query {
+				font-size: clamp(9px, 2.4vh, 18px);
+				color: var(--color-queue-song, rgba(255, 255, 255, 0.8));
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.q-by {
+				font-size: clamp(7px, 1.8vh, 13px);
+				color: var(--color-queue-by, rgba(255, 255, 255, 0.35));
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			#empty-queue {
+				font-size: clamp(9px, 2.2vh, 16px);
+				color: rgba(255, 255, 255, 0.2);
+				padding: 0 4px;
+				font-style: italic;
+			}
+
+			/* Placeholder state */
+			#stage.placeholder #song-title {
+				opacity: 0.25;
+			}
+
+			#stage.placeholder #status-badge {
+				display: none;
+			}
+
+			.q-row.searching .q-query {
+				color: rgba(255, 200, 80, 0.75);
+				font-style: italic;
+			}
+
+			.q-row.failed .q-query {
+				color: rgba(255, 90, 90, 0.75);
+				font-style: italic;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="audio-gate">🔊 Click to enable audio</div>
+
+		<div id="stage" class="placeholder">
+			<div id="now-section">
+				<div id="thumb-wrap">
+					<img id="thumb" src="" alt="" />
+					<div id="thumb-init">♪</div>
+				</div>
+				<div id="info">
+					<div id="status-badge">PLAYING</div>
+					<div id="song-title">Waiting for requests…</div>
+					<div id="song-artist"></div>
+					<div id="song-requester"></div>
+				</div>
+			</div>
+
+			<div class="divider"></div>
+
+			<div id="queue-section">
+				<div id="queue-label">NEXT UP</div>
+				<div id="queue-rows"></div>
+			</div>
+		</div>
+
+		<script>
+			(function () {
+				"use strict";
+
+				var WS_URL = "ws://127.0.0.1:8766";
+
+				var stageEl = document.getElementById("stage");
+				var thumbEl = document.getElementById("thumb");
+				var thumbInitEl = document.getElementById("thumb-init");
+				var statusEl = document.getElementById("status-badge");
+				var titleEl = document.getElementById("song-title");
+				var artistEl = document.getElementById("song-artist");
+				var requesterEl = document.getElementById("song-requester");
+				var queueRowsEl = document.getElementById("queue-rows");
+
+				var ws = null;
+				var retry = 0;
+				var currentAudioUrl = null;
+
+				/* ── Audio element ── */
+				var audioEl = document.createElement("audio");
+				document.body.appendChild(audioEl);
+				var audioGateEl = document.getElementById("audio-gate");
+
+				audioEl.addEventListener("ended", sendEnded);
+				/* error on a local file is real — log it but don't auto-skip */
+				audioEl.addEventListener("error", function () {
+					console.error("Audio error", audioEl.error);
+				});
+
+				function playAudio(url) {
+					currentAudioUrl = url;
+					/* muted-then-unmute trick to bypass autoplay block */
+					audioEl.muted = true;
+					audioEl.src = url;
+					audioEl.load();
+					var p = audioEl.play();
+					if (p && typeof p.then === "function") {
+						p.then(function () {
+							audioEl.muted = false;
+							audioGateEl.style.display = "none";
+						}).catch(function () {
+							audioGateEl.style.display = "block";
+						});
+					} else {
+						audioEl.muted = false;
+					}
+				}
+
+				audioGateEl.addEventListener("click", function () {
+					audioGateEl.style.display = "none";
+					audioEl.muted = false;
+					audioEl.play();
+				});
+
+				function sendEnded() {
+					/* guard: only fire if a track is actually active */
+					if (!currentAudioUrl) return;
+					if (ws && ws.readyState === WebSocket.OPEN) {
+						ws.send(JSON.stringify({ type: "music_player", action: "ended" }));
+					}
+				}
+
+				/* ── Render ── */
+				function render(data) {
+					var now = data.now || {};
+					var queue = data.queue || [];
+
+					if (data.colors) {
+						stageEl.style.setProperty(
+							"--color-song",
+							data.colors.song || "#ffffff",
+						);
+						stageEl.style.setProperty(
+							"--color-artist",
+							data.colors.artist || "#b4ffeb",
+						);
+						stageEl.style.setProperty(
+							"--color-user",
+							data.colors.user || "#aaaaaa",
+						);
+						stageEl.style.setProperty(
+							"--color-queue-label",
+							data.colors.queue_label || "#00dcb4",
+						);
+						stageEl.style.setProperty(
+							"--color-queue-index",
+							data.colors.queue_index || "#00dcb4",
+						);
+						stageEl.style.setProperty(
+							"--color-queue-song",
+							data.colors.queue_song || "#d9d9d9",
+						);
+						stageEl.style.setProperty(
+							"--color-queue-by",
+							data.colors.queue_by || "#595959",
+						);
+					}
+
+					if (typeof data.volume !== "undefined") {
+						audioEl.volume = data.volume;
+					}
+
+					if (now.status === "playing" && now.audioUrl) {
+						if (now.audioUrl !== currentAudioUrl) {
+							playAudio(now.audioUrl);
+						}
+
+						// Thumbnail
+						if (now.thumbnail) {
+							thumbEl.src = now.thumbnail;
+							thumbEl.style.display = "block";
+							thumbInitEl.style.display = "none";
+						} else {
+							thumbEl.style.display = "none";
+							thumbInitEl.style.display = "flex";
+						}
+						thumbEl.onerror = function () {
+							thumbEl.style.display = "none";
+							thumbInitEl.style.display = "flex";
+						};
+
+						statusEl.textContent = "▶ PLAYING";
+						statusEl.className = "";
+						titleEl.textContent = now.title || "";
+						artistEl.textContent = now.artist || "";
+						requesterEl.textContent = now.requester
+							? "♡  " + now.requester
+							: "";
+						stageEl.classList.remove("placeholder");
+					} else if (now.status === "searching") {
+						thumbEl.style.display = "none";
+						thumbInitEl.style.display = "flex";
+						statusEl.textContent = "⏳ SEARCHING";
+						statusEl.className = "searching";
+						titleEl.textContent = now.title || "";
+						artistEl.textContent = "";
+						requesterEl.textContent = now.requester
+							? "♡  " + now.requester
+							: "";
+						stageEl.classList.remove("placeholder");
+					} else {
+						/* stop audio immediately when state clears (e.g. skip) */
+						if (currentAudioUrl) {
+							audioEl.pause();
+							audioEl.src = "";
+							currentAudioUrl = null;
+						}
+						thumbEl.style.display = "none";
+						thumbInitEl.style.display = "flex";
+						titleEl.textContent = "Waiting for requests…";
+						artistEl.textContent = "";
+						requesterEl.textContent = "";
+						stageEl.classList.add("placeholder");
+					}
+
+					/* Queue */
+					queueRowsEl.textContent = "";
+					if (!queue.length) {
+						var empty = document.createElement("div");
+						empty.id = "empty-queue";
+						empty.textContent = "Queue is empty";
+						queueRowsEl.appendChild(empty);
+					} else {
+						queue.forEach(function (item, i) {
+							var row = document.createElement("div");
+							row.className = "q-row";
+
+							var num = document.createElement("span");
+							num.className = "q-num";
+							num.textContent = i + 1;
+
+							var thumb = document.createElement("img");
+							thumb.className = "q-thumb";
+							thumb.alt = "";
+							if (item.thumbnail) {
+								thumb.src = item.thumbnail;
+								thumb.onerror = function () {
+									thumb.style.display = "none";
+								};
+							} else {
+								thumb.style.display = "none";
+							}
+
+							var query = document.createElement("span");
+							query.className = "q-query";
+							if (item.failed) {
+								row.classList.add("failed");
+								query.textContent = "Song not found";
+							} else if (item.searching) {
+								row.classList.add("searching");
+								query.textContent = "Searching song...";
+							} else {
+								query.textContent = item.query || "";
+							}
+
+							var by = document.createElement("span");
+							by.className = "q-by";
+							by.textContent = item.requester ? "by " + item.requester : "";
+
+							var info = document.createElement("div");
+							info.className = "q-info";
+							info.appendChild(query);
+							info.appendChild(by);
+
+							row.appendChild(num);
+							row.appendChild(thumb);
+							row.appendChild(info);
+							queueRowsEl.appendChild(row);
+						});
+					}
+				}
+
+				function applyControl(d) {
+					if (d.action === "pause") {
+						audioEl.pause();
+					} else if (d.action === "resume") {
+						if (currentAudioUrl) audioEl.play();
+					} else if (d.action === "set_volume") {
+						audioEl.volume = d.value;
+					}
+				}
+
+				/* ── WebSocket ── */
+				function scheduleReconnect() {
+					var delay = Math.min(1000 * Math.pow(2, retry), 10000);
+					retry++;
+					setTimeout(connect, delay);
+				}
+
+				function connect() {
+					try {
+						ws = new WebSocket(WS_URL);
+					} catch (err) {
+						scheduleReconnect();
+						return;
+					}
+
+					ws.onopen = function () {
+						retry = 0;
+						ws.send(
+							JSON.stringify({ type: "identify", overlay: "music_player" }),
+						);
+					};
+
+					ws.onmessage = function (e) {
+						try {
+							var d = JSON.parse(e.data);
+							if (d.type === "music_player") render(d);
+							else if (d.type === "music_control") applyControl(d);
+						} catch (err) {}
+					};
+
+					ws.onerror = function () {
+						try {
+							ws.close();
+						} catch (err) {}
+					};
+
+					ws.onclose = scheduleReconnect;
+				}
+
+				connect();
+			})();
+		</script>
+	</body>
+</html>
