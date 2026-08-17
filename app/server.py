@@ -6,7 +6,7 @@ import socketserver
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from threading import Thread
+from threading import Lock, Thread
 
 _ALLOWED_ASSET_EXTS = {
     '.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv', '.m4v', '.ts', '.webm',
@@ -19,7 +19,51 @@ import websockets
 import app.state as state
 from app.constants import OVERLAY_HTTP_PORT, OVERLAY_WS_PORT
 
+_music_current_lock = Lock()
+
 _OVERLAYS = Path(__file__).parent / "overlays"
+
+# Cache of allowed base directories, rebuilt when the server is started or config is saved.
+_allowed_bases_cache: list[str] = []
+
+
+def refresh_allowed_bases():
+    """Rebuild the cached list of directories that asset serving is allowed from.
+
+    Call this once when the overlay server starts and again whenever the user
+    saves settings (so newly configured video/music paths are picked up without
+    a restart).
+    """
+    bases: list[str] = []
+    folder = state.config.get("music_folder", "")
+    if folder:
+        try:
+            bases.append(os.path.realpath(folder) + os.sep)
+        except Exception:
+            pass
+    # Parent directories of all configured video tier paths
+    tiers = state.config.get("tiers", {})
+    for paths in tiers.values():
+        if isinstance(paths, list):
+            for p in paths:
+                if p:
+                    try:
+                        bases.append(os.path.realpath(os.path.dirname(p)) + os.sep)
+                    except Exception:
+                        pass
+    for p in state.config.get("default_video", []):
+        if p:
+            try:
+                bases.append(os.path.realpath(os.path.dirname(p)) + os.sep)
+            except Exception:
+                pass
+    global _allowed_bases_cache
+    _allowed_bases_cache = bases
+
+
+def _get_allowed_bases() -> list[str]:
+    """Return the cached list of allowed base directories."""
+    return _allowed_bases_cache
 
 
 class _ThreadHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
@@ -58,10 +102,30 @@ class _OverlayHandler(BaseHTTPRequestHandler):
 
     def _serve_file(self, path):
         ext = os.path.splitext(path)[1].lower()
-        if not path or ext not in _ALLOWED_ASSET_EXTS or not os.path.isfile(path):
+        if not path or ext not in _ALLOWED_ASSET_EXTS:
             self.send_response(404)
             self.end_headers()
             return
+        # Resolve to real absolute path and verify it is inside an allowed base directory
+        try:
+            real = os.path.realpath(path)
+        except Exception:
+            self.send_response(404)
+            self.end_headers()
+            return
+        allowed_bases = _get_allowed_bases()
+        if not any(real.startswith(base) for base in allowed_bases):
+            self.send_response(403)
+            self.end_headers()
+            return
+        # `real` is safe to use: extension was checked against _ALLOWED_ASSET_EXTS,
+        # the path was canonicalized with os.path.realpath, and confirmed to be
+        # under one of the pre-configured allowed base directories above.
+        if not os.path.isfile(real):
+            self.send_response(404)
+            self.end_headers()
+            return
+        path = real
         size = os.path.getsize(path)
         ct, _  = mimetypes.guess_type(path)
         ct     = ct or 'application/octet-stream'
@@ -160,9 +224,11 @@ async def _ws_handler(websocket):
         pass
     # send current music player state on connect
     try:
+        with _music_current_lock:
+            music_snap = dict(state.music_current)
         await websocket.send(json.dumps({
             "type":   "music_player",
-            "now":    dict(state.music_current),
+            "now":    music_snap,
             "queue":  [{"query": i.get("_resolved_title") or i["query"], "requester": i["requester"]} for i in state.music_display_queue],
             "volume": state.music_volume,
             "paused": state.music_paused,
@@ -245,9 +311,18 @@ def broadcast(payload: dict):
 
 
 def start_overlay_server(app):
-    state._http_server = _ThreadHTTPServer(('127.0.0.1', OVERLAY_HTTP_PORT), _OverlayHandler)
-    Thread(target=state._http_server.serve_forever, daemon=True).start()
-    Thread(target=_start_ws_thread, daemon=True).start()
+    refresh_allowed_bases()
+    try:
+        state._http_server = _ThreadHTTPServer(('127.0.0.1', OVERLAY_HTTP_PORT), _OverlayHandler)
+    except OSError as e:
+        app.log(f"Cannot start HTTP server: {e} — port {OVERLAY_HTTP_PORT} may already be in use.", "error")
+        return
+    try:
+        Thread(target=state._http_server.serve_forever, daemon=True).start()
+        Thread(target=_start_ws_thread, daemon=True).start()
+    except Exception as e:
+        app.log(f"Cannot start overlay server threads: {e}", "error")
+        return
     state._overlay_connected = True
     app.set_overlay_status(True)
     app.log("SERVER CONNECTED", "ok")
