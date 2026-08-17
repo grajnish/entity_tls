@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  smoke-test:
+    name: Install & import smoke test
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Smoke test — import app modules
+        run: |
+          python -c "from app.constants import APP_NAME, VERSION; print(APP_NAME, VERSION)"
+          python -c "from app.config import load_config, save_config, get_video"
+          python -c "import app.state as state; print('state ok')"
+          python -c "from app.server import broadcast, start_overlay_server, stop_overlay_server"
+          python -c "from app.tiktok import handle_like, handle_gift, handle_comment"

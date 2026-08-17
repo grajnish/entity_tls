@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "entity-tls"
+version = "1.0.0"
+description = "TikTok Live streamer desktop overlay app"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "TikTokLive>=6.0.0",
+    "websockets>=13.0",
+]
+
+[project.scripts]
+entity-tls = "entity:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

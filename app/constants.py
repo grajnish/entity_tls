@@ -1,14 +1,13 @@
 APP_NAME  = "ENTITY TLS"
-VERSION   = "1.0.0"
+
+# Single source of truth — also declared in pyproject.toml [project] version
+try:
+    from importlib.metadata import version as _pkg_version
+    VERSION = _pkg_version("entity-tls")
+except Exception:
+    VERSION = "1.0.0"
 
 TIER_KEYS = ["10", "20", "30", "100", "200", "300", "500", "1000", "2000"]
-
-TIER_THRESHOLDS = [
-    (2000, "2000"), (1000, "1000"), (500,  "500"),
-    (299,  "300"),  (199,  "200"),  (99,   "100"),
-    (30,   "30"),   (20,   "20"),   (10,   "10"),
-]
-
 TIER_COLORS = {
     "10":   "#1a5c38", "20":   "#14506a",
     "30":   "#4a2370", "100":  "#1a5c38",

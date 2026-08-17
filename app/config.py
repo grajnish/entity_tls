@@ -51,6 +51,13 @@ def load_config():
 def save_config():
     with open(CFG_FILE, "w", encoding="utf-8") as f:
         json.dump(state.config, f, indent=2, ensure_ascii=False)
+    # Refresh the allowed asset base directories so the HTTP server picks up
+    # any new video/music folder paths without requiring a server restart.
+    try:
+        from app.server import refresh_allowed_bases
+        refresh_allowed_bases()
+    except Exception:
+        pass
 
 
 def get_video(coins):

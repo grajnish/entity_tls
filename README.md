@@ -135,4 +135,4 @@ The output will be in the `dist/` folder.
 
 ## 📄 License
 
-This project is currently unlicensed. All rights reserved.
+This project is proprietary — all rights reserved. See [LICENSE](LICENSE) for details.

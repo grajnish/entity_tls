@@ -40,7 +40,7 @@ def handle_gift(event: GiftEvent, app):
         return
 
     coins = event.gift.diamond_count
-    count = event.repeat_count or 1  # TikTok sends 0 for single non-combo gifts
+    count = event.repeat_count if event.repeat_count else 1  # TikTok sends 0 for single non-combo gifts
     gift_icon = _gift_icon(event.gift)
 
     for handler in state.raw_gift_handlers:
