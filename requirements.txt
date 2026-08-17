@@ -1,0 +1,11 @@
+# ENTITY TLS - Python dependencies
+# Install with: pip install -r requirements.txt
+
+# GUI framework
+customtkinter>=5.2.0
+
+# TikTok Live integration
+TikTokLive>=6.0.0
+
+# WebSocket server (overlay communication)
+websockets>=12.0
